@@ -1,0 +1,60 @@
+# Docker Interactive CLI
+
+I'm still at the beginning with Python. So bear with me if the code is not 100% perfect.
+
+The motivation for creating this tool is that I work a lot with Docker and Docker Swarm and I have to type a lot in the console, which is sometimes a bit tedious - especially when the service names are a bit longer.
+
+![Sceenshot](/assets/dcli-screenshot.png)
+
+The application is based on the Docker SDK for Python. The following functions are supported:
+
+**Container**
+exec, inspect, logs, ls, prune, restart, rm, start, stop, stats, stop
+
+**Image**
+ls, prune
+
+**Network**
+ls, prune, rm
+
+**Node**
+activate, drain, inspect, ls, overview
+
+**Service**
+inspect, logs, ls, rm, scale, task, force upate
+
+**Volume**
+ls, prune, rm
+
+**System**
+info, prune, version
+
+## Using docker
+
+```bash
+sudo docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock stefanheim/dcli
+```
+
+## Manual installation
+
+Python 3.12 is required!
+
+Clone the repository:
+
+```bash
+git clone https://github.com/stenet/dcli
+cd dcli
+```
+
+Execute the install-script. This will create a virtual Python environment, install all packages 
+using pip and create a symlink `dcli` in `usr/local/bin`.
+
+```bash
+./install.sh
+```
+
+Run it using `dcli` with sudo:
+
+```bash
+sudo dcli
+```
