@@ -47,7 +47,11 @@ def __get_table(print_table=True):
     for service in sorted(client.services.list(), key=lambda c: c.name):
         attrs = service.attrs
 
-        replicas = str(attrs["Spec"]["Mode"]["Replicated"]["Replicas"])
+        spec = attrs["Spec"]
+        mode = spec["Mode"]
+
+        replicated = mode.get("Replicated") or mode.get("Global")
+        replicas = replicated["Replicas"] if replicated else 0
 
         update_status = attrs.get("UpdateStatus")
         update_status_state = update_status["State"] if update_status else ""
@@ -59,7 +63,7 @@ def __get_table(print_table=True):
             if task["Status"]["State"] == "running":
                 running_tasks += 1
 
-        color = "green" if running_tasks == int(replicas) else "red"
+        color = "green" if running_tasks == replicas else "red"
 
         table.add_row(
             service.short_id,
