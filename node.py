@@ -23,8 +23,7 @@ def start():
         handler.add_command("drain", "drain a node", cmd_drain)
         handler.add_command("inspect", "inspect a node", cmd_inspect)
         handler.add_command("ls", "list all nodes", cmd_ls)
-        handler.add_command(
-            "overview", "show an overview of all nodes", cmd_overview)
+        handler.add_command("overview", "show an overview of all nodes", cmd_overview)
 
         if handler.show_command_chooser():
             return False
