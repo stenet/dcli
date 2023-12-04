@@ -1,3 +1,4 @@
+from threading import Thread
 from rich.console import Console
 from rich.table import Table
 import docker
@@ -5,6 +6,7 @@ import questionary
 from command_handler import CommandHandler
 from refresh import RefreshUntilKeyPressed
 import utils
+import ssh
 import styles
 
 console = Console()
@@ -143,10 +145,15 @@ def cmd_ls():
 def cmd_overview():
     """show an overview of all nodes"""
 
+    stat_dic = {}
+    thread = Thread(target=lambda: __load_stats(stat_dic))
+    thread.start()
+
     def go():
         table = Table(expand=True)
         table.add_column("node")
         table.add_column("services")
+        table.add_column("stats")
 
         services = sorted(client.services.list(), key=lambda s: s.name)
 
@@ -158,15 +165,52 @@ def cmd_overview():
             attrs = node.attrs
             hostname = attrs.get("Description").get("Hostname")
 
-            node_tasks = [task for task in tasks if task["NodeID"] == node.id]
+            if thread.is_alive():
+                stats = "loading..."
+            else:
+                stats = stat_dic.get(node.id, "not available")
 
+            node_tasks = [task for task in tasks if task["NodeID"] == node.id]
             services_arr = []
             for node_task in node_tasks:
                 service = next((s.name for s in services if s.id == node_task["ServiceID"]), None)
                 services_arr.append(service)
 
-            table.add_row(hostname, "\n".join(services_arr))
+            table.add_row(
+                hostname,
+                "\n".join(services_arr),
+                stats)
 
         return table
 
     RefreshUntilKeyPressed(console, __show_header, go)
+
+
+def __load_stats(dic):
+    for node in client.nodes.list():
+        attrs = node.attrs
+
+        node_ip = attrs.get("Status").get("Addr")
+        stats_arr = ssh.execute_command(
+            node_ip,
+            [
+                "df -k | grep /$ | awk '{print $2 \"/\" $3 }'",
+                "free --kilo | grep Mem | awk '{print $2 \"/\" $3 }'"
+            ])
+
+        if stats_arr and len(stats_arr) == 2:
+            disk_arr = stats_arr[0].partition("\n")[0].split("/")
+            disk_total = round(int(disk_arr[0]) / 1024 / 1024, 2)
+            disk_used = round(int(disk_arr[1]) / 1024 / 1024, 2)
+            disk_percent = round(disk_used / disk_total * 100, 2)
+            disk_color = "green" if disk_percent < 80 else "red"
+
+            mem_arr = stats_arr[1].partition("\n")[0].split("/")
+            mem_total = round(int(mem_arr[0]) / 1024 / 1024, 2)
+            mem_used = round(int(mem_arr[1]) / 1024 / 1024, 2)
+            mem_percent = round(mem_used / mem_total * 100, 2)
+            mem_color = "green" if mem_percent < 80 else "red"
+
+            disk = f"disk: {disk_used}GB/{disk_total}GB [{disk_color}]({disk_percent}%)[/]"
+            mem = f"mem: {mem_used}GB/{mem_total}GB [{mem_color}]({mem_percent}%)[/]"
+            dic[node.id] = f"{disk}\n{mem}"

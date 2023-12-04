@@ -58,3 +58,15 @@ Run it using `dcli` with sudo:
 ```bash
 sudo dcli
 ```
+
+## Node overview
+
+If the following enviroment variables are exported, the overview will include disk
+and mem information.
+
+```bash
+export SSH_USER="xxx"
+export SSH_KEY_FILE="/home/xxx/.ssh/id_rsa"
+
+export SSH_PWD="" # optional
+```
