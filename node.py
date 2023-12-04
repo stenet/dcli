@@ -159,11 +159,11 @@ def cmd_overview():
             attrs = node.attrs
             hostname = attrs.get("Description").get("Hostname")
 
-            tasks = [task for task in tasks if task["NodeID"] == node.id]
+            node_tasks = [task for task in tasks if task["NodeID"] == node.id]
 
             services_arr = []
-            for task in tasks:
-                service = next((s.name for s in services if s.id == task["ServiceID"]), None)
+            for node_task in node_tasks:
+                service = next((s.name for s in services if s.id == node_task["ServiceID"]), None)
                 services_arr.append(service)
 
             table.add_row(hostname, "\n".join(services_arr))
