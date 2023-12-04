@@ -191,6 +191,15 @@ def __load_stats(dic):
         attrs = node.attrs
 
         node_ip = attrs.get("Status").get("Addr")
+        
+        # leader
+        if node_ip == "0.0.0.0":
+            manager_status = attrs.get("ManagerStatus")
+
+            if manager_status and manager_status.get("Leader"):
+                node_ip = manager_status.get("Addr")
+                node_ip = node_ip.partition(":")[0]
+
         stats_arr = ssh.execute_command(
             node_ip,
             [
