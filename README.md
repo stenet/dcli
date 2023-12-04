@@ -35,6 +35,12 @@ info, prune, version
 sudo docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock stefanheim/dcli
 ```
 
+or the more complex one if you want the nodes stats in the overview
+
+```bash
+sudo docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock -v /home/xxx/.ssh/id_rsa:/opt/.ssh/id_rsa -e SSH_USER=xxx -e SSH_KEY_FILE=/opt/.ssh/id_rsa stefanheim/dcli
+```
+
 ## Manual installation
 
 Python 3.12 is required!
