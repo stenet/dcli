@@ -40,7 +40,7 @@ def __get_table(availability=None, print_table=True):
     table.add_column("id")
     table.add_column("host")
     table.add_column("role")
-    table.add_column("availability")
+    table.add_column("state")
 
     for node in sorted(client.nodes.list(), key=lambda c: c.attrs.get("Description").get("Hostname")):
         if availability and availability != node.attrs.get("Spec").get("Availability"):
@@ -49,14 +49,18 @@ def __get_table(availability=None, print_table=True):
         attrs = node.attrs
         spec = attrs.get("Spec")
         description = attrs.get("Description")
+        state = attrs.get("Status", {}).get("State")
+        av = spec.get("Availability")
 
-        color = "green" if spec.get("Availability") == "active" else "red"
+        color = "green" if state == "ready" and av == "active" else "red"
+
+        av = f"[{color}]{state}/{av}[/]"
 
         table.add_row(
             node.short_id,
             description.get("Hostname"),
             spec.get("Role"),
-            f"[{color}]{spec.get("Availability")}[/]")
+            av)
 
     if print_table:
         console.print(table)
