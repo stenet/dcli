@@ -228,7 +228,7 @@ def cmd_tasks():
             services_and_tasks = [(service_or_services, t) for t in service_or_services.tasks()]
 
         services_and_tasks = sorted(services_and_tasks, key=lambda t: t[1]["UpdatedAt"], reverse=True)
-        services_and_tasks = services_and_tasks[:30]
+        services_and_tasks = services_and_tasks[:40]
 
         nodes = client.nodes.list()
 
@@ -240,6 +240,9 @@ def cmd_tasks():
 
             state = task["Status"].get("State")
             desired_state = task.get("DesiredState", "unknown")
+
+            if state == desired_state and state == "shutdown":
+                continue
 
             color = "green" if state == desired_state else "red"
 
