@@ -228,10 +228,9 @@ def cmd_tasks():
             services_and_tasks = [(service_or_services, t) for t in service_or_services.tasks()]
 
         services_and_tasks = sorted(services_and_tasks, key=lambda t: t[1]["UpdatedAt"], reverse=True)
-        services_and_tasks = services_and_tasks[:40]
-
         nodes = client.nodes.list()
 
+        index = 0
         for service_and_task in services_and_tasks:
             service, task = service_and_task
 
@@ -253,6 +252,10 @@ def cmd_tasks():
                 f"[{color}]{state}[/]",
                 desired_state,
                 task["Status"].get("Err"))
+            
+            index += 1
+            if index > 40:
+                break
 
         return table
 
