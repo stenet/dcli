@@ -116,8 +116,11 @@ def __get_service_names():
     return [service.name for service in client.services.list()]
 
 
-def __get_auto_complete_service():
+def __get_auto_complete_service(allow_all=False):
     service_names = __get_service_names()
+
+    if allow_all:
+        service_names.append("all")
 
     if len(service_names) == 0:
         console.print("no services found")
@@ -131,10 +134,13 @@ def __get_auto_complete_service():
         "select a service",
         choices=service_names,
         style=styles.autocomplete,
-        validate=lambda v: not v or v in __get_service_names()).ask()
+        validate=lambda v: not v or v in service_names).ask()
 
     if not service_name:
         return None
+
+    if service_name == "all":
+        return client.services.list()
 
     return client.services.get(service_name)
 
@@ -202,9 +208,9 @@ def cmd_scale():
 
 def cmd_tasks():
     """show tasks of a service"""
-    service = __get_auto_complete_service()
+    service_or_services = __get_auto_complete_service(allow_all=True)
 
-    if not service:
+    if not service_or_services:
         return
 
     def go():
@@ -216,7 +222,17 @@ def cmd_tasks():
         table.add_column("desired state")
         table.add_column("error")
 
-        for task in service.tasks():
+        if isinstance(service_or_services, list):
+            services_and_tasks = [(s, t) for s in service_or_services for t in s.tasks()]
+        else:
+            services_and_tasks = [(service_or_services, t) for t in service_or_services.tasks()]
+
+        services_and_tasks = sorted(services_and_tasks, key=lambda t: t[1]["UpdatedAt"], reverse=True)
+        services_and_tasks = services_and_tasks[:30]
+
+        for service_and_task in services_and_tasks:
+            service, task = service_and_task
+
             node_id = task["NodeID"]
             node = client.nodes.get(node_id)
 
