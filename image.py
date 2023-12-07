@@ -32,12 +32,23 @@ def __get_table(print_table=True):
     table = Table(expand=True)
     table.add_column("id")
     table.add_column("name")
+    table.add_column("tag")
     table.add_column("created at")
 
     for image in sorted(client.images.list(), key=lambda c: " ".join(c.tags)):
+        digests = image.attrs.get("RepoDigests", [])
+        digest = digests[0] if len(digests) > 0 else ""
+        name = digest.split("@")[0]
+
+        if not name:
+            name = "<none>"
+
+        tag = image.tags[0].split(":")[1] if len(image.tags) > 0 else "<none>"
+
         table.add_row(
             image.short_id,
-            " ".join(image.tags),
+            name,
+            tag,
             utils.format_date_time(image.attrs["Created"]))
 
     if print_table:
