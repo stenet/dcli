@@ -269,5 +269,17 @@ def cmd_update():
     if not service:
         return
 
+    image_with_digest = service.attrs["Spec"]["TaskTemplate"]["ContainerSpec"]["Image"]
+    image_without_digest = image_with_digest.split("@", 1)[0]
+
+    registry_data = client.images.get_registry_data(image_without_digest)
+    digest = registry_data.attrs["Descriptor"]["digest"]
+    updated_image = f"{image_without_digest}@{digest}"
+
+    force_update = updated_image != image_with_digest
+
     with console.status("updating service..."):
-        service.force_update()
+        if force_update:
+            service.update(image=updated_image, force_update=True)
+        else:
+            service.force_update()
