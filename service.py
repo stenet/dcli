@@ -206,9 +206,9 @@ def cmd_scale():
         service.scale(int(replicas))
 
 
-def cmd_tasks():
+def cmd_tasks(service=None):
     """show tasks of a service"""
-    service_or_services = __get_auto_complete_service(allow_all=True)
+    service_or_services = service or __get_auto_complete_service(allow_all=True)
 
     if not service_or_services:
         return
@@ -234,7 +234,10 @@ def cmd_tasks():
         for service_and_task in services_and_tasks:
             service, task = service_and_task
 
-            node_id = task["NodeID"]
+            node_id = task.get("NodeID", None)
+            if not node_id:
+                continue
+
             node = next((n for n in nodes if n.id == node_id), None)
 
             state = task["Status"].get("State")
@@ -252,7 +255,7 @@ def cmd_tasks():
                 f"[{color}]{state}[/]",
                 desired_state,
                 task["Status"].get("Err"))
-            
+
             index += 1
             if index > 40:
                 break
@@ -283,3 +286,5 @@ def cmd_update():
             service.update(image=updated_image, force_update=True)
         else:
             service.force_update()
+
+    cmd_tasks(service)
