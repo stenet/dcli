@@ -24,6 +24,7 @@ def start():
         handler.add_command("ls", "list all services", cmd_ls)
         handler.add_command("rm", "remove a service", cmd_rm)
         handler.add_command("scale", "scale a service", cmd_scale)
+        handler.add_command("tag", "change tag of a service image", cmd_tag)
         handler.add_command("tasks", "show tasks of a service", cmd_tasks)
         handler.add_command("update", "force update a service", cmd_update)
 
@@ -39,6 +40,7 @@ def __get_table(print_table=True):
     table = Table(expand=True)
     table.add_column("id")
     table.add_column("name")
+    table.add_column("tag")
     table.add_column("networks")
     table.add_column("ports")
     table.add_column("replicas")
@@ -49,6 +51,9 @@ def __get_table(print_table=True):
 
         spec = attrs["Spec"]
         mode = spec["Mode"]
+
+        tag = spec["TaskTemplate"]["ContainerSpec"]["Image"].split(":", 1)[1]
+        tag = tag.split("@", 1)[0]
 
         replicated = mode.get("Replicated") or mode.get("Global")
         replicas = replicated["Replicas"] if replicated else 0
@@ -68,6 +73,7 @@ def __get_table(print_table=True):
         table.add_row(
             service.short_id,
             service.name,
+            tag,
             __get_networks(endpoint),
             __get_ports(endpoint),
             f"[{color}]{running_tasks}/{replicas}[/]",
@@ -223,6 +229,29 @@ def cmd_scale():
     cmd_tasks(services)
 
 
+def cmd_tag():
+    """change tag of a service image"""
+    services = __get_auto_complete_service(allow_multiple=True)
+
+    if not services:
+        return
+
+    image_tag = questionary.text("enter the new tag").ask()
+    if not image_tag:
+        return
+
+    for service in services:
+        with console.status(f"tagging service [orange3]{service.name}[/]..."):
+            image_with_digest = service.attrs["Spec"]["TaskTemplate"]["ContainerSpec"]["Image"]
+            image_without_tag = image_with_digest.split(":", 1)[0]
+            updated_image = f"{image_without_tag}:{image_tag}"
+            service.update(image=updated_image)
+
+        console.print(f"  service [orange3]{service.name}[/] tagged")
+
+    cmd_tasks(services)
+
+
 def cmd_tasks(services=None):
     """show tasks of a service"""
     services = services or __get_auto_complete_service(allow_multiple=True)
@@ -235,6 +264,7 @@ def cmd_tasks(services=None):
         table.add_column("updated at")
         table.add_column("node")
         table.add_column("service")
+        table.add_column("tag")
         table.add_column("current state")
         table.add_column("desired state")
         table.add_column("error")
@@ -259,12 +289,16 @@ def cmd_tasks(services=None):
             if state == desired_state and state == "shutdown":
                 continue
 
+            tag = task["Spec"]["ContainerSpec"]["Image"].split(":", 1)[1]
+            tag = tag.split("@", 1)[0]
+
             color = "green" if state == desired_state else "red"
 
             table.add_row(
                 utils.format_date_time(task["UpdatedAt"]),
                 node.attrs.get("Description").get("Hostname"),
                 service.name,
+                tag,
                 f"[{color}]{state}[/]",
                 desired_state,
                 task["Status"].get("Err"))
