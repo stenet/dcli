@@ -78,6 +78,7 @@ def __get_table(print_table=True):
 
     return table
 
+
 def __get_networks(endpoint):
     virtual_ips = endpoint.get("VirtualIPs")
 
@@ -116,10 +117,10 @@ def __get_service_names():
     return [service.name for service in client.services.list()]
 
 
-def __get_auto_complete_service(allow_all=False):
+def __get_auto_complete_service(allow_multiple=False):
     service_names = __get_service_names()
 
-    if allow_all:
+    if allow_multiple:
         service_names.append("all")
 
     if len(service_names) == 0:
@@ -130,19 +131,30 @@ def __get_auto_complete_service(allow_all=False):
 
     __get_table()
 
+    def __is_valid(v):
+        if not v:
+            return True
+        
+        if allow_multiple:
+            return v == "all" or len([s for s in service_names if s.startswith(v)]) > 0
+        else:
+            return v in service_names
+
     service_name = questionary.autocomplete(
-        "select a service",
+        "select services starting with input or 'all'" if allow_multiple else "select a service",
         choices=service_names,
         style=styles.autocomplete,
-        validate=lambda v: not v or v in service_names).ask()
+        validate=__is_valid).ask()
 
     if not service_name:
         return None
 
     if service_name == "all":
         return client.services.list()
-
-    return client.services.get(service_name)
+    elif allow_multiple:
+        return [s for s in client.services.list() if s.name.startswith(service_name)]
+    else:
+        return client.services.get(service_name)
 
 
 def cmd_inspect():
@@ -192,9 +204,9 @@ def cmd_rm():
 
 def cmd_scale():
     """scale a service"""
-    service = __get_auto_complete_service()
+    services = __get_auto_complete_service(allow_multiple=True)
 
-    if not service:
+    if not services:
         return
 
     replicas = questionary.text(
@@ -202,15 +214,20 @@ def cmd_scale():
         default="1",
         validate=lambda v: v.isdigit() and int(v) > 0).ask()
 
-    with console.status("scaling service..."):
-        service.scale(int(replicas))
+    for service in services:
+        with console.status(f"scaling service [orange3]{service.name}[/]..."):
+            service.scale(int(replicas))
+
+        console.print(f"  service [orange3]{service.name}[/] scaled")
+
+    cmd_tasks(services)
 
 
-def cmd_tasks(service=None):
+def cmd_tasks(services=None):
     """show tasks of a service"""
-    service_or_services = service or __get_auto_complete_service(allow_all=True)
+    services = services or __get_auto_complete_service(allow_multiple=True)
 
-    if not service_or_services:
+    if not services:
         return
 
     def go():
@@ -222,11 +239,7 @@ def cmd_tasks(service=None):
         table.add_column("desired state")
         table.add_column("error")
 
-        if isinstance(service_or_services, list):
-            services_and_tasks = [(s, t) for s in service_or_services for t in s.tasks()]
-        else:
-            services_and_tasks = [(service_or_services, t) for t in service_or_services.tasks()]
-
+        services_and_tasks = [(s, t) for s in services for t in s.tasks()]
         services_and_tasks = sorted(services_and_tasks, key=lambda t: t[1]["UpdatedAt"], reverse=True)
         nodes = client.nodes.list()
 
@@ -267,24 +280,27 @@ def cmd_tasks(service=None):
 
 def cmd_update():
     """force update a service"""
-    service = __get_auto_complete_service()
+    services = __get_auto_complete_service(allow_multiple=True)
 
-    if not service:
+    if not services:
         return
 
-    with console.status("updating service..."):
-        image_with_digest = service.attrs["Spec"]["TaskTemplate"]["ContainerSpec"]["Image"]
-        image_without_digest = image_with_digest.split("@", 1)[0]
+    for service in services:
+        with console.status(f"updating service [orange3]{service.name}[/]..."):
+            image_with_digest = service.attrs["Spec"]["TaskTemplate"]["ContainerSpec"]["Image"]
+            image_without_digest = image_with_digest.split("@", 1)[0]
 
-        registry_data = client.images.get_registry_data(image_without_digest)
-        digest = registry_data.attrs["Descriptor"]["digest"]
-        updated_image = f"{image_without_digest}@{digest}"
+            registry_data = client.images.get_registry_data(image_without_digest)
+            digest = registry_data.attrs["Descriptor"]["digest"]
+            updated_image = f"{image_without_digest}@{digest}"
 
-        force_update = updated_image != image_with_digest
+            force_update = updated_image != image_with_digest
 
-        if force_update:
-            service.update(image=updated_image, force_update=True)
-        else:
-            service.force_update()
+            if force_update:
+                service.update(image=updated_image, force_update=True)
+            else:
+                service.force_update()
 
-    cmd_tasks(service)
+        console.print(f"  service [orange3]{service.name}[/] updated")
+
+    cmd_tasks(services)
