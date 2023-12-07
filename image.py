@@ -32,11 +32,13 @@ def __get_table(print_table=True):
     table = Table(expand=True)
     table.add_column("id")
     table.add_column("name")
+    table.add_column("created at")
 
     for image in sorted(client.images.list(), key=lambda c: " ".join(c.tags)):
         table.add_row(
             image.short_id,
-            " ".join(image.tags))
+            " ".join(image.tags),
+            utils.format_date_time(image.attrs["Created"]))
 
     if print_table:
         console.print(table)
