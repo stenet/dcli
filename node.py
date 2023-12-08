@@ -1,4 +1,4 @@
-from threading import Thread
+import concurrent.futures
 from rich.console import Console
 from rich.table import Table
 import docker
@@ -150,8 +150,10 @@ def cmd_overview():
     """show an overview of all nodes"""
 
     stat_dic = {}
-    thread = Thread(target=lambda: __load_stats(stat_dic))
-    thread.start()
+
+    # no with statement because of concurrent.futures.ThreadPoolExecutor()
+    # it would wait for finishing the thread
+    stats_future = concurrent.futures.ThreadPoolExecutor().submit(__load_stats, stat_dic)
 
     def go():
         table = Table(expand=True)
@@ -169,7 +171,7 @@ def cmd_overview():
             attrs = node.attrs
             hostname = attrs.get("Description").get("Hostname")
 
-            if thread.is_alive():
+            if stats_future.running():
                 stats = "loading..."
             else:
                 stats = stat_dic.get(node.id, "not available")
@@ -195,7 +197,7 @@ def __load_stats(dic):
         attrs = node.attrs
 
         node_ip = attrs.get("Status").get("Addr")
-        
+
         # leader
         if node_ip == "0.0.0.0":
             manager_status = attrs.get("ManagerStatus")

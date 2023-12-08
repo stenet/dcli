@@ -1,8 +1,8 @@
 #!/usr/bin/bash
 
-# export SSH_USER="stefan"
-# export SSH_PWD=""
-# export SSH_KEY_FILE="/home/stefan/.ssh/id_rsa"
+export SSH_USER="stefan"
+export SSH_PWD=""
+export SSH_KEY_FILE="/home/stefan/.ssh/id_rsa"
 
 p="$(dirname "$(readlink -f "$0")")"
 cd $p

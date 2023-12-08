@@ -1,6 +1,7 @@
 from time import sleep
 from typing import Callable
-from threading import Thread, Event
+from threading import Event
+import concurrent.futures
 from rich.console import Console
 from rich.live import Live
 
@@ -20,23 +21,23 @@ class RefreshUntilKeyPressed:
         self.__wait_for_any_key()
 
     def __wait_for_any_key(self):
-        thread = Thread(target=self.__run)
-        thread.start()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(self.__run)
 
-        try:
-            result = input()
-            self.event.set()
-            thread.join()
+            try:
+                result = input()
+                self.event.set()
+                future.result()
 
-            if result == "s":
-                self.header_callback()
-                self.console.print("Press [orange3]Enter-Key[/] to exit.", style="bold")
-                self.console.print(self.callback())
-                input()
+                if result == "s":
+                    self.header_callback()
+                    self.console.print("Press [orange3]Enter-Key[/] to exit.", style="bold")
+                    self.console.print(self.callback())
+                    input()
 
-        except KeyboardInterrupt:
-            self.event.set()
-            thread.join()
+            except KeyboardInterrupt:
+                self.event.set()
+                future.result()
 
     def __run(self):
         self.header_callback()
