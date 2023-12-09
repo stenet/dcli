@@ -216,12 +216,13 @@ def __load_stats(dic):
             node_ip,
             [
                 ssh.Command("df -k | grep /$ | awk '{print $2 \"/\" $3 }'"),
-                ssh.Command("free --kilo | grep Mem | awk '{print $2 \"/\" $3 }'")
+                ssh.Command("free --kilo | grep Mem | awk '{print $2 \"/\" $3 }'"),
+                ssh.Command("uptime -p")
             ])
         
         if isinstance(stats_arr, str):
             dic[node.id] = f"[red]{stats_arr}[/]"
-        elif stats_arr and len(stats_arr) == 2:
+        elif stats_arr and len(stats_arr) == 3:
             disk_arr = stats_arr[0].partition("\n")[0].split("/")
             disk_total = round(int(disk_arr[0]) / 1024 / 1024, 2)
             disk_used = round(int(disk_arr[1]) / 1024 / 1024, 2)
@@ -236,7 +237,7 @@ def __load_stats(dic):
 
             disk = f"disk: {disk_used}GB/{disk_total}GB [{disk_color}]({disk_percent}%)[/]"
             mem = f"mem: {mem_used}GB/{mem_total}GB [{mem_color}]({mem_percent}%)[/]"
-            dic[node.id] = f"{disk}\n{mem}"
+            dic[node.id] = f"[orange3]{stats_arr[2]}[/]\n{disk}\n{mem}"
 
 def cmd_prune():
     """Prune all nodes"""
