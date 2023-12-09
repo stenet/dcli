@@ -11,7 +11,11 @@
       "program": "main.py",
       "console": "integratedTerminal",
       "justMyCode": true,
-      "sudo": true
+      "sudo": true,
+      "env": {
+        "SSH_USER": "stefan",
+        "SSH_KEY_FILE": "/home/stefan/.ssh/id_rsa"
+      }
     }
   ]
 }

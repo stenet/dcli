@@ -26,6 +26,7 @@ def start():
         handler.add_command("inspect", "inspect a node", cmd_inspect)
         handler.add_command("ls", "list all nodes", cmd_ls)
         handler.add_command("overview", "show an overview of all nodes", cmd_overview)
+        handler.add_command("prune", "Prune all nodes", cmd_prune)
 
         if handler.show_command_chooser():
             return False
@@ -192,28 +193,35 @@ def cmd_overview():
     RefreshUntilKeyPressed(console, __show_header, go)
 
 
+def __get_node_ip(node):
+    attrs = node.attrs
+
+    node_ip = attrs.get("Status").get("Addr")
+
+    # leader
+    if node_ip == "0.0.0.0":
+        manager_status = attrs.get("ManagerStatus")
+
+        if manager_status and manager_status.get("Leader"):
+            node_ip = manager_status.get("Addr")
+            node_ip = node_ip.partition(":")[0]
+    
+    return node_ip
+
 def __load_stats(dic):
     for node in client.nodes.list():
-        attrs = node.attrs
-
-        node_ip = attrs.get("Status").get("Addr")
-
-        # leader
-        if node_ip == "0.0.0.0":
-            manager_status = attrs.get("ManagerStatus")
-
-            if manager_status and manager_status.get("Leader"):
-                node_ip = manager_status.get("Addr")
-                node_ip = node_ip.partition(":")[0]
+        node_ip = __get_node_ip(node)
 
         stats_arr = ssh.execute_command(
             node_ip,
             [
-                "df -k | grep /$ | awk '{print $2 \"/\" $3 }'",
-                "free --kilo | grep Mem | awk '{print $2 \"/\" $3 }'"
+                ssh.Command("df -k | grep /$ | awk '{print $2 \"/\" $3 }'"),
+                ssh.Command("free --kilo | grep Mem | awk '{print $2 \"/\" $3 }'")
             ])
-
-        if stats_arr and len(stats_arr) == 2:
+        
+        if isinstance(stats_arr, str):
+            dic[node.id] = f"[red]{stats_arr}[/]"
+        elif stats_arr and len(stats_arr) == 2:
             disk_arr = stats_arr[0].partition("\n")[0].split("/")
             disk_total = round(int(disk_arr[0]) / 1024 / 1024, 2)
             disk_used = round(int(disk_arr[1]) / 1024 / 1024, 2)
@@ -229,3 +237,34 @@ def __load_stats(dic):
             disk = f"disk: {disk_used}GB/{disk_total}GB [{disk_color}]({disk_percent}%)[/]"
             mem = f"mem: {mem_used}GB/{mem_total}GB [{mem_color}]({mem_percent}%)[/]"
             dic[node.id] = f"{disk}\n{mem}"
+
+def cmd_prune():
+    """Prune all nodes"""
+    if not questionary.confirm("Are you sure?").ask():
+        return
+
+    for node in client.nodes.list():
+        node_ip = __get_node_ip(node)
+        hostname = node.attrs.get("Description").get("Hostname")
+
+        result = ssh.execute_command(
+            node_ip,
+            [
+                ssh.Command(
+                    "docker system prune -f", 
+                    status=f"pruning node {hostname}",
+                    sudo=True)
+            ])
+
+        if isinstance(result, str):
+            console.print(f"[red]{hostname}:[/] {result}")
+            continue 
+        elif not result or len(result) != 1:
+            console.print(f"[red]{hostname}:[/] error on executing command")
+            continue
+
+        console.print(f"[orange3]{hostname}[/]")
+        console.print(result[0] or "no output")
+
+    questionary.press_any_key_to_continue("press any key to continue").ask()
+    cmd_overview()
